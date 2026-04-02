@@ -1,0 +1,1525 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>知识图谱示意</title>
+    <style>
+      :root {
+        --bg0: #070a12;
+        --bg1: #0a1224;
+        --panel: rgba(18, 25, 44, 0.72);
+        --panel-solid: #111a33;
+        --stroke: rgba(255, 255, 255, 0.18);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.7);
+        --shadow: 0 18px 55px rgba(0, 0, 0, 0.55);
+        --accent: #7c5cff;
+        --accent2: #20d3ff;
+        --danger: #ff4d6d;
+        --node: rgba(124, 92, 255, 0.18);
+        --node-stroke: rgba(124, 92, 255, 0.55);
+        --node2: rgba(32, 211, 255, 0.14);
+        --node2-stroke: rgba(32, 211, 255, 0.5);
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        background: radial-gradient(1200px 800px at 50% 30%, var(--bg1), var(--bg0));
+        color: var(--text);
+        overflow: hidden;
+      }
+
+      .app {
+        position: relative;
+        height: 100%;
+        width: 100%;
+      }
+
+      .topbar {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        top: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+      .chip {
+        pointer-events: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+      }
+
+      .chip b {
+        font-weight: 650;
+        letter-spacing: 0.3px;
+      }
+
+      .hint {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .actions {
+        margin-left: auto;
+        display: inline-flex;
+        gap: 10px;
+        pointer-events: auto;
+      }
+
+      button {
+        appearance: none;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+        transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+        backdrop-filter: blur(10px);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.085);
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      button[disabled] {
+        cursor: not-allowed;
+        opacity: 0.55;
+        transform: none;
+      }
+
+      .canvas {
+        position: absolute;
+        inset: 0;
+      }
+
+      svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        z-index: 10;
+      }
+
+      .overlay[data-open="true"] {
+        display: flex;
+      }
+
+      .panel {
+        position: relative;
+        width: min(600px, 100%);
+        max-height: min(720px, 100%);
+        overflow: auto;
+        border-radius: 18px;
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+      }
+
+      .panelHeader {
+        position: sticky;
+        top: 0;
+        background: linear-gradient(
+          180deg,
+          rgba(17, 26, 51, 0.92),
+          rgba(17, 26, 51, 0.66)
+        );
+        /* 去掉边界线 */
+        border-bottom: none;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panelHeader h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 720;
+        letter-spacing: 0.2px;
+        flex: 1;
+        text-align: center;
+      }
+
+      .panelBody {
+        padding: 16px;
+      }
+
+      .panelFooter {
+        position: static;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px 14px;
+        border-top: none;
+        background: rgba(17,26,51,0.72);
+      }
+
+      .panelTip {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.3;
+        max-width: 60%;
+      }
+
+      .panelActions {
+        display: inline-flex;
+        gap: 10px;
+      }
+
+      @media (max-width: 780px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 14px;
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 13px;
+      }
+
+      .tagRow {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.18);
+        padding: 6px 9px;
+        border-radius: 999px;
+      }
+
+      .kbd {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        font-size: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 2px 7px;
+        border-radius: 7px;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      a {
+        color: rgba(124, 92, 255, 0.95);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <div class="topbar">
+        <div class="chip">
+          <div>
+            <b id="modeTitle">知识图谱</b>
+            <div class="hint" id="modeHint">点击中央大圆展开三层结构</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="btnBack" type="button" disabled>返回</button>
+          <button id="btnHome" type="button">回首页</button>
+        </div>
+      </div>
+
+      <div class="canvas" aria-label="知识图谱互动区">
+        <svg id="svg" role="img" aria-label="知识图谱">
+          <defs>
+            <radialGradient id="glow" cx="50%" cy="45%" r="70%">
+              <stop offset="0%" stop-color="rgba(124,92,255,0.42)" />
+              <stop offset="40%" stop-color="rgba(124,92,255,0.18)" />
+              <stop offset="100%" stop-color="rgba(124,92,255,0.00)" />
+            </radialGradient>
+            <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="rgba(0,0,0,0.55)" />
+            </filter>
+          </defs>
+
+          <!-- Background subtle glow -->
+          <circle id="bgGlow" cx="0" cy="0" r="1" fill="url(#glow)" opacity="0.95"></circle>
+
+          <!-- Links -->
+          <g id="links" opacity="0.9"></g>
+
+          <!-- Nodes -->
+          <g id="nodes"></g>
+
+          <!-- Instruction text -->
+          <g id="hud" opacity="0.95"></g>
+        </svg>
+      </div>
+
+      <div class="overlay" id="overlay" data-open="false" aria-modal="true" role="dialog">
+        <div class="panel">
+          <div class="panelHeader">
+            <h2 id="panelTitle">节点</h2>
+          </div>
+          <div class="panelBody" id="panelBody"></div>
+          <div class="panelFooter">
+            <span id="panelTip" class="panelTip"></span>
+            <div class="panelActions">
+              <button id="btnOverlayBack" type="button">返回</button>
+              <button id="btnOverlayClose" type="button" style="border-color: rgba(255,77,109,0.35);">关闭</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const svg = document.getElementById("svg");
+      const gLinks = document.getElementById("links");
+      const gNodes = document.getElementById("nodes");
+      const gHud = document.getElementById("hud");
+      const bgGlow = document.getElementById("bgGlow");
+
+      const modeTitle = document.getElementById("modeTitle");
+      const modeHint = document.getElementById("modeHint");
+      const btnBack = document.getElementById("btnBack");
+      const btnHome = document.getElementById("btnHome");
+
+      const overlay = document.getElementById("overlay");
+      const btnOverlayClose = document.getElementById("btnOverlayClose");
+      const btnOverlayBack = document.getElementById("btnOverlayBack");
+      const panelTitle = document.getElementById("panelTitle");
+      const panelBody = document.getElementById("panelBody");
+
+      // 三层树形结构
+      const layerData = {
+        root: [
+          { id: "layer_macro", label: "宏观层", title: "宏观层" },
+          { id: "layer_meso", label: "中观层", title: "中观层" },
+          { id: "layer_micro", label: "微观层", title: "微观层" },
+        ],
+        layer_macro: Array.from({ length: 6 }, (_, i) => ({
+          id: `macro_${i + 1}`,
+          label: `阶段${String.fromCharCode(0x4e00 + i)}`,
+          title: `阶段${String.fromCharCode(0x4e00 + i)}（示意页）`,
+        })),
+        layer_meso: Array.from({ length: 10 }, (_, i) => ({
+          id: `meso_${i + 1}`,
+          label: `人物${i + 1}`,
+          title: `人物${i + 1}（示意页）`,
+        })),
+        layer_micro: Array.from({ length: 6 }, (_, i) => ({
+          id: `micro_${i + 1}`,
+          label: `故事${String.fromCharCode(0x4e00 + i)}`,
+          title: `故事${String.fromCharCode(0x4e00 + i)}（示意页）`,
+        })),
+      };
+
+      // 数字转文字
+      function numToChinese(n) {
+        const chars = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+        return chars[n] || "";
+      }
+
+      // 修正标签生成
+      layerData.layer_macro = Array.from({ length: 6 }, (_, i) => ({
+        id: `macro_${i + 1}`,
+        label: `阶段${numToChinese(i + 1)}`,
+        title: `阶段${numToChinese(i + 1)}（示意页）`,
+      }));
+      // 特殊要求：宏观层第一项为前奥林匹斯神系
+      layerData.layer_macro[0].label = "前奥林匹斯神系";
+      layerData.layer_macro[0].title = "前奥林匹斯神系（混沌创世与初代神统治阶段）";
+      // 宏观层第二项为提坦神统治时期
+      layerData.layer_macro[1].label = "提坦神统治时期";
+      layerData.layer_macro[1].title = "提坦神统治时期（克洛诺斯的黄金时代与王权危机）";
+      // 宏观层第三项为奥林匹斯神系确立阶段
+      layerData.layer_macro[2].label = "奥林匹斯神系确立阶段";
+      layerData.layer_macro[2].title = "奥林匹斯神系确立阶段（提坦之战与新神王统治）";
+      // 宏观层第四项为英雄时代
+      layerData.layer_macro[3].label = "英雄时代";
+      layerData.layer_macro[3].title = "英雄时代（半神英雄崛起与人类传奇阶段）";
+      // 宏观层第五项为特洛伊战争阶段
+      layerData.layer_macro[4].label = "特洛伊战争阶段";
+      layerData.layer_macro[4].title = "特洛伊战争阶段";
+      // 宏观层第六项为神话衰落与回归人本阶段
+      layerData.layer_macro[5].label = "神话衰落与回归人本阶段";
+      layerData.layer_macro[5].title = "神话衰落与回归人本阶段";
+
+      layerData.layer_micro = Array.from({ length: 6 }, (_, i) => ({
+        id: `micro_${i + 1}`,
+        label: `故事${numToChinese(i + 1)}`,
+        title: `故事${numToChinese(i + 1)}（示意页）`,
+      }));
+
+      const state = {
+        width: 0,
+        height: 0,
+        cx: 0,
+        cy: 0,
+        view: "root", // root | menu | detail
+        selected: null, // node id
+        currentLayer: "root", // 当前展示的数据层级
+        history: [],
+        elements: {
+          root: null,
+          nodes: new Map(), // id -> { group, circle, text, x,y,r, tx,ty }
+          links: new Map(), // id -> line
+        },
+        anim: null,
+      };
+
+      function clamp(n, a, b) {
+        return Math.max(a, Math.min(b, n));
+      }
+
+      function setOverlayOpen(open) {
+        overlay.dataset.open = open ? "true" : "false";
+      }
+
+      function clearSvgGroup(g) {
+        while (g.firstChild) g.removeChild(g.firstChild);
+      }
+
+      function svgEl(tag, attrs = {}) {
+        const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+        for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+        return el;
+      }
+
+      function updateLayout() {
+        const rect = svg.getBoundingClientRect();
+        state.width = rect.width;
+        state.height = rect.height;
+        state.cx = rect.width / 2;
+        state.cy = rect.height / 2;
+
+        bgGlow.setAttribute("cx", state.cx);
+        bgGlow.setAttribute("cy", state.cy);
+        bgGlow.setAttribute("r", Math.max(state.width, state.height) * 0.6);
+
+        renderHud();
+        if (state.view === "menu") {
+          positionMenuNodes(false);
+        } else if (state.view === "root") {
+          positionRoot(false);
+        }
+      }
+
+      function renderHud() {
+        clearSvgGroup(gHud);
+
+        const msg =
+          state.view === "root"
+            ? "点击中央大圆展开三层结构"
+            : state.view === "menu"
+            ? "点任一小圆进入对应分类"
+            : "按返回回到上一层";
+
+        const hint = svgEl("text", {
+          x: state.cx,
+          y: state.cy + Math.min(state.height * 0.34, 240),
+          "text-anchor": "middle",
+          "dominant-baseline": "middle",
+          fill: "rgba(255,255,255,0.7)",
+          "font-size": 14,
+          "letter-spacing": 0.2,
+        });
+        hint.textContent = msg;
+
+        const keys = svgEl("text", {
+          x: state.cx,
+          y: state.cy + Math.min(state.height * 0.34, 240) + 24,
+          "text-anchor": "middle",
+          "dominant-baseline": "middle",
+          fill: "rgba(255,255,255,0.48)",
+          "font-size": 12,
+        });
+        keys.textContent = "键盘：Esc 返回｜浏览器返回键也可用";
+
+        gHud.appendChild(hint);
+        gHud.appendChild(keys);
+      }
+
+      function buildSceneIfNeeded() {
+        if (state.elements.root) return;
+
+        // Root node (big circle) - 仅建立一次
+        const rootGroup = svgEl("g", { cursor: "pointer" });
+        const rootCircle = svgEl("circle", {
+          cx: state.cx,
+          cy: state.cy,
+          r: 120,
+          fill: "rgba(255,255,255,0.05)",
+          stroke: "rgba(255,255,255,0.1)",
+          "stroke-width": 2,
+          filter: "url(#softShadow)",
+        });
+        const rootText = svgEl("text", {
+          x: state.cx,
+          y: state.cy,
+          "text-anchor": "middle",
+          "dominant-baseline": "middle",
+          fill: "rgba(255,255,255,0.92)",
+          "font-size": 18,
+          "font-weight": 750,
+          "letter-spacing": 0.3,
+        });
+        rootText.textContent = "知识图谱";
+
+        rootGroup.appendChild(rootCircle);
+        rootGroup.appendChild(rootText);
+        gNodes.appendChild(rootGroup);
+
+        rootGroup.addEventListener("click", () => {
+          if (state.view !== "root") return;
+          goTo({ view: "menu", currentLayer: "root" });
+        });
+
+        state.elements.root = { group: rootGroup, circle: rootCircle, text: rootText };
+      }
+
+      function buildMenuNodes(layerId) {
+        // 清空现有节点和连线，仅保留中央大圆
+        state.elements.nodes.clear();
+        state.elements.links.clear();
+        clearSvgGroup(gLinks);
+        // gNodes 会被全部清空然后把 rootGroup 重新添加回来
+        clearSvgGroup(gNodes);
+        if (state.elements.root && state.elements.root.group) {
+          gNodes.appendChild(state.elements.root.group);
+        }
+
+        // 获取当前层数据
+        const nodesData = layerData[layerId] || [];
+
+        // 为每个节点创建 group 和连线
+        for (let i = 0; i < nodesData.length; i++) {
+          const n = nodesData[i];
+          const group = svgEl("g", { cursor: "pointer", opacity: 0 });
+
+          const circle = svgEl("circle", {
+            cx: state.cx,
+            cy: state.cy,
+            r: 44,
+            fill: "rgba(255,255,255,0.05)",
+            stroke: i % 2 === 0 ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.1)",
+            "stroke-width": 2,
+            filter: "url(#softShadow)",
+          });
+
+          const text = svgEl("text", {
+            x: state.cx,
+            y: state.cy,
+            "text-anchor": "middle",
+            "dominant-baseline": "middle",
+            fill: "rgba(255,255,255,0.92)",
+            "font-size": 14,
+            "font-weight": 720,
+          });
+          text.textContent = n.label;
+
+          group.appendChild(circle);
+          group.appendChild(text);
+          gNodes.appendChild(group);
+
+          group.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (state.view !== "menu") return;
+            // 判断是否是二级节点（可以再展开）还是详情节点
+            if (layerData[n.id]) {
+              // 是可展开的层
+              goTo({ view: "menu", currentLayer: n.id });
+            } else {
+              // 打开详情面板
+              goTo({ view: "detail", selected: n.id });
+            }
+          });
+
+          state.elements.nodes.set(n.id, {
+            id: n.id,
+            group,
+            circle,
+            text,
+            x: state.cx,
+            y: state.cy,
+            r: 44,
+            tx: state.cx,
+            ty: state.cy,
+          });
+
+          // 只在非顶层时创建连线
+          if (layerId !== "root") {
+            const line = svgEl("line", {
+              x1: state.cx,
+              y1: state.cy,
+              x2: state.cx,
+              y2: state.cy,
+              stroke: "rgba(255,255,255,0.12)",
+              "stroke-width": 1.5,
+              opacity: 0,
+            });
+            gLinks.appendChild(line);
+            state.elements.links.set(n.id, line);
+          }
+        }
+      }
+
+      function positionRoot(animate) {
+        const { root } = state.elements;
+        const bigR = clamp(Math.min(state.width, state.height) * 0.14, 105, 170);
+
+        const textSize = Math.round(bigR * 0.24);
+
+        if (!animate) {
+          root.circle.setAttribute("cx", state.cx);
+          root.circle.setAttribute("cy", state.cy);
+          root.circle.setAttribute("r", bigR);
+          root.text.setAttribute("x", state.cx);
+          root.text.setAttribute("y", state.cy);
+          root.text.setAttribute("font-size", String(Math.max(20, textSize)));
+        }
+      }
+
+      function positionMenuNodes() {
+        const nodesData = layerData[state.currentLayer] || [];
+        const isTopLevel = state.currentLayer === "root";
+        const smallR = isTopLevel
+          ? clamp(Math.min(state.width, state.height) * 0.095, 50, 82)
+          : clamp(Math.min(state.width, state.height) * 0.075, 42, 64);
+        const marginX = Math.max(70, state.width * 0.06);
+        const marginY = Math.max(60, state.height * 0.08);
+
+        const startX = marginX;
+        const endX = state.width - marginX;
+        const startY = marginY;
+        const endY = state.height - marginY;
+
+        const dx = endX - startX;
+        const dy = endY - startY;
+
+        // 如果是顶层（currentLayer="root"），点分散但无连线
+        // 如果是二层，点分散且有折线连接
+        if (isTopLevel) {
+          // 顶层三个节点：上、下、上模式，扩大距离，让三节点更分散
+          const offsetX = Math.min(state.width * 0.32, 240); // 横向间距更大
+          const offsetY1 = Math.min(state.height * 0.19, 135); // 宏观层（左上）y偏移
+          const offsetY2 = Math.min(state.height * 0.16, 95); // 中观层（下）y偏移更大
+          const offsetY3 = Math.min(state.height * 0.12, 80); // 微观层（右上）y偏移
+
+          nodesData.forEach((n, i) => {
+            let tx, ty;
+            if (n.id === "layer_macro") {
+              // 宏观层：左上
+              tx = state.cx - offsetX;
+              ty = state.cy - offsetY1;
+            } else if (n.id === "layer_meso") {
+              // 中观层：下
+              tx = state.cx;
+              ty = state.cy + offsetY2;
+            } else if (n.id === "layer_micro") {
+              // 微观层：右上，y点不同
+              tx = state.cx + offsetX;
+              ty = state.cy - offsetY3;
+            }
+
+            const el = state.elements.nodes.get(n.id);
+            el.tx = tx;
+            el.ty = ty;
+            el.r = smallR;
+
+            setNodePosition(n.id, tx, ty, smallR, 1);
+          });
+        } else {
+          // 二层逻辑保持不变，但三层节点略收拢避免超出边界
+          nodesData.forEach((n, i) => {
+            // 计算目标位置：基础对角线 + 随机偏移
+            const tBase = nodesData.length > 1 ? i / (nodesData.length - 1) : 0.5;
+            const tMin = state.currentLayer === "layer_meso" ? 0.05 : 0.1;
+            const tMax = state.currentLayer === "layer_meso" ? 0.95 : 0.9;
+            const t = tMin + (tMax - tMin) * tBase; // 人物层略微拉开，其他层保守范围
+            let tx = startX + dx * t;
+            let ty = startY + dy * t;
+
+            // 随机偏移使点分散开且不规则
+            // 使用节点ID的hash作伪随机数，确保稳定
+            const seed = n.id.charCodeAt(0) + i;
+            const pseudoRand1 = Math.sin(seed * 12.9898) * 43758.5453;
+            const pseudoRand2 = Math.sin((seed + 1) * 78.233) * 43758.5453;
+            const rand1 = pseudoRand1 - Math.floor(pseudoRand1);
+            const rand2 = pseudoRand2 - Math.floor(pseudoRand2);
+
+            // 垂直于对角线的随机偏移（依据当前层级控制收拢程度）
+            const layerShrink = state.currentLayer === "layer_macro" ? 0.85 : state.currentLayer === "layer_meso" ? 0.9 : 0.75;
+            const maxDeviate = Math.max(state.width * 0.08, state.height * 0.08) * layerShrink;
+            const deviation = (rand1 - 0.5) * 2 * maxDeviate;
+            
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const ox = (-dy / len) * deviation;
+            const oy = (dx / len) * deviation;
+
+            // 沿对角线方向的随机偏移（略收拢）
+            const alongDeviate = (rand2 - 0.5) * Math.min(state.width * 0.04, state.height * 0.04) * layerShrink;
+            tx += ox + (dx / len) * alongDeviate;
+            ty += oy + (dy / len) * alongDeviate;
+
+            const el = state.elements.nodes.get(n.id);
+            el.tx = tx;
+            el.ty = ty;
+            el.r = smallR;
+
+            setNodePosition(n.id, tx, ty, smallR, 1);
+
+            // 连线逻辑：顶层没有连线，二层有折线
+            let x1, y1;
+            if (i === 0) {
+              // 第一个节点不连中心，而是作为起点
+              x1 = tx;
+              y1 = ty;
+            } else {
+              const prev = state.elements.nodes.get(nodesData[i - 1].id);
+              x1 = prev.tx;
+              y1 = prev.ty;
+            }
+            
+            if (i > 0) {
+              // 只在i>0时才有连线（从前一个节点连到当前节点）
+              setLinkPosition(n.id, x1, y1, tx, ty, 0.9);
+            }
+          });
+        }
+      }
+
+      function setNodePosition(id, x, y, r, opacity) {
+        const el = state.elements.nodes.get(id);
+        el.x = x;
+        el.y = y;
+        el.circle.setAttribute("cx", x);
+        el.circle.setAttribute("cy", y);
+        el.circle.setAttribute("r", r);
+
+        const fontSize = Math.max(12, Math.min(20, Math.round(r * 0.35)));
+        el.text.setAttribute("x", x);
+        el.text.setAttribute("y", y + Math.round(fontSize * 0.08));
+        el.text.setAttribute("font-size", String(fontSize));
+
+        el.group.setAttribute("opacity", opacity);
+      }
+
+      function setLinkPosition(id, x1, y1, x2, y2, opacity) {
+        const line = state.elements.links.get(id);
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("opacity", opacity);
+      }
+
+      function cancelAnim() {
+        if (state.anim) cancelAnimationFrame(state.anim);
+        state.anim = null;
+      }
+
+      function animateToMenu() {
+        cancelAnim();
+        const duration = 520;
+        const start = performance.now();
+
+        positionMenuNodes(true);
+
+        const root = state.elements.root;
+        const rootR0 = parseFloat(root.circle.getAttribute("r") || "120");
+        const rootR1 = clamp(Math.min(state.width, state.height) * 0.085, 62, 92);
+
+        function easeOutCubic(t) {
+          return 1 - Math.pow(1 - t, 3);
+        }
+
+        const nodesData = layerData[state.currentLayer] || [];
+        const isTopLevel = state.currentLayer === "root";
+        const from = {};
+        nodesData.forEach((n) => {
+          from[n.id] = { x: state.cx, y: state.cy, r: 1, o: 0 };
+        });
+
+        const tick = (now) => {
+          const t = clamp((now - start) / duration, 0, 1);
+          const e = easeOutCubic(t);
+
+          // shrink root (if visible) but don't change its label
+          const rr = rootR0 + (rootR1 - rootR0) * e;
+          root.circle.setAttribute("r", rr);
+          // text stays the same as before animation
+
+          // expand nodes
+          nodesData.forEach((n, i) => {
+            const el = state.elements.nodes.get(n.id);
+            const x = from[n.id].x + (el.tx - from[n.id].x) * e;
+            const y = from[n.id].y + (el.ty - from[n.id].y) * e;
+            const r = 1 + (el.r - 1) * e;
+            const o = e;
+            setNodePosition(n.id, x, y, r, o);
+            // 二层有连线
+            if (!isTopLevel && i > 0) {
+              const prev = nodesData[i - 1];
+              const prevEl = state.elements.nodes.get(prev.id);
+              const x1 = from[prev.id].x + (prevEl.tx - from[prev.id].x) * e;
+              const y1 = from[prev.id].y + (prevEl.ty - from[prev.id].y) * e;
+              setLinkPosition(n.id, x1, y1, x, y, o);
+            }
+          });
+
+          if (t < 1) state.anim = requestAnimationFrame(tick);
+          else state.anim = null;
+        };
+        state.anim = requestAnimationFrame(tick);
+      }
+
+      function animateToRoot() {
+        cancelAnim();
+        const duration = 460;
+        const start = performance.now();
+
+        const root = state.elements.root;
+        const rootR0 = parseFloat(root.circle.getAttribute("r") || "80");
+        const rootR1 = clamp(Math.min(state.width, state.height) * 0.14, 105, 150);
+
+        const nodesData = layerData[state.currentLayer] || [];
+        const from = {};
+        nodesData.forEach((n) => {
+          const el = state.elements.nodes.get(n.id);
+          from[n.id] = { x: el.x, y: el.y, r: el.r, o: 1 };
+        });
+
+        function easeInOut(t) {
+          return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        const tick = (now) => {
+          const t = clamp((now - start) / duration, 0, 1);
+          const e = easeInOut(t);
+
+          const rr = rootR0 + (rootR1 - rootR0) * e;
+          root.circle.setAttribute("r", rr);
+          root.text.textContent = "知识图谱";
+          root.text.setAttribute("font-size", String(18));
+
+          nodesData.forEach((n) => {
+            const f = from[n.id];
+            const x = f.x + (state.cx - f.x) * e;
+            const y = f.y + (state.cy - f.y) * e;
+            const r = f.r + (1 - f.r) * e;
+            const o = 1 - e;
+            setNodePosition(n.id, x, y, Math.max(1, r), o);
+            // 返回root态不需要连线动画
+          });
+
+          if (t < 1) state.anim = requestAnimationFrame(tick);
+          else state.anim = null;
+        };
+        state.anim = requestAnimationFrame(tick);
+      }
+
+      // 从所有层中查询节点
+      function findNode(nodeId) {
+        for (const key in layerData) {
+          const nodes = layerData[key];
+          if (Array.isArray(nodes)) {
+            const node = nodes.find((n) => n.id === nodeId);
+            if (node) return node;
+          }
+        }
+        return null;
+      }
+
+      function setViewTitleHint() {
+        if (state.view === "root") {
+          modeTitle.textContent = "知识图谱";
+          modeHint.textContent = "点击中央大圆展开 3 个层级";
+        } else if (state.view === "menu") {
+          modeTitle.textContent = "节点菜单";
+          modeHint.textContent = "点任一节点进入对应分类";
+        } else {
+          const node = findNode(state.selected);
+          modeTitle.textContent = node ? node.label : "节点";
+          modeHint.textContent = "可按返回回到上一层";
+        }
+      }
+
+      function updateButtons() {
+        btnBack.disabled = state.history.length === 0;
+      }
+
+      function pushHistory(entry) {
+        state.history.push(entry);
+        updateButtons();
+      }
+
+      function popHistory() {
+        const prev = state.history.pop();
+        updateButtons();
+        return prev;
+      }
+
+      // 获取当前要展示的节点数据
+      function getCurrentNodesData() {
+        return layerData[state.currentLayer] || [];
+      }
+
+      function applyView(next, { skipHistory = false, animate = true } = {}) {
+        buildSceneIfNeeded();
+        setOverlayOpen(false);
+
+        const rootBg = '第一层级.png';
+        const secondBg = '第二层级.jpg';
+        if (next.view === 'root') {
+          document.body.style.backgroundImage = `url(${rootBg}), radial-gradient(1200px 800px at 50% 30%, var(--bg1), var(--bg0))`;
+          document.body.style.backgroundSize = 'cover';
+          document.body.style.backgroundPosition = 'center';
+        } else if (next.view === 'menu') {
+          document.body.style.backgroundImage = `url(${secondBg}), radial-gradient(1200px 800px at 50% 30%, var(--bg1), var(--bg0))`;
+          document.body.style.backgroundSize = 'cover';
+          document.body.style.backgroundPosition = 'center';
+        }
+
+        if (!skipHistory) {
+          pushHistory({ view: state.view, selected: state.selected, currentLayer: state.currentLayer });
+        }
+
+        // 更新currentLayer
+        if (next.currentLayer !== undefined) {
+          state.currentLayer = next.currentLayer;
+        }
+
+        // Keep the center node styling consistent even when jumping via hash.
+        {
+          const root = state.elements.root;
+          const menuR = clamp(Math.min(state.width, state.height) * 0.085, 62, 92);
+          if (next.view === "root") {
+            root.text.textContent = "知识图谱";
+            root.text.setAttribute("font-size", "18");
+          } else {
+            // Only set radius when we are not running the root->menu animation.
+            if (next.view === "detail" || (next.view === "menu" && !animate)) {
+              root.circle.setAttribute("r", String(menuR));
+            }
+          }
+        }
+
+        state.view = next.view;
+        state.selected = next.selected ?? null;
+        setViewTitleHint();
+        renderHud();
+
+        const root = state.elements.root;
+
+        if (state.view === "root") {
+          // 初始界面：显示中央大圆，清除所有二层节点
+          root.group.setAttribute("opacity", "1");
+          positionRoot(false);
+          // 清空所有节点和连线
+          state.elements.nodes.clear();
+          state.elements.links.clear();
+          clearSvgGroup(gNodes);
+          clearSvgGroup(gLinks);
+          // 重新添加中央大圆
+          if (state.elements.root && state.elements.root.group) {
+            gNodes.appendChild(state.elements.root.group);
+          }
+        } else if (state.view === "menu") {
+          // 一层或二层知识图谱：隐藏中央大圆，只显示节点
+          root.group.setAttribute("opacity", "0");
+          buildMenuNodes(state.currentLayer);
+          positionMenuNodes();
+          if (animate) animateToMenu();
+        } else if (state.view === "detail") {
+          // 详情面板：隐藏中央大圆
+          root.group.setAttribute("opacity", "0");
+          openDetail(state.selected);
+        }
+      }
+
+      function goTo(next, opts = {}) {
+        const { replace = false, ...rest } = opts;
+        let hash;
+        if (next.view === "root") {
+          hash = "#root";
+        } else if (next.view === "menu") {
+          hash = `#${next.currentLayer || 'menu'}`;
+        } else {
+          hash = `#${next.selected}`;
+        }
+        if (location.hash !== hash) {
+          if (replace) history.replaceState({}, "", hash);
+          else history.pushState({}, "", hash);
+        }
+        applyView(next, rest);
+      }
+
+      function goBack() {
+        if (state.history.length === 0) return;
+        const prev = popHistory();
+        // restore layer if provided
+        if (prev.currentLayer) {
+          state.currentLayer = prev.currentLayer;
+        }
+        let hash;
+        if (prev.view === "root") {
+          hash = "#root";
+        } else if (prev.view === "menu") {
+          if (prev.currentLayer && prev.currentLayer !== "root") {
+            hash = `#${prev.currentLayer}`;
+          } else {
+            hash = "#menu";
+          }
+        } else {
+          hash = `#${prev.selected}`;
+        }
+        if (location.hash !== hash) history.replaceState({}, "", hash);
+        applyView(prev, { skipHistory: true, animate: true });
+      }
+
+      function openDetail(nodeId) {
+        const node = findNode(nodeId);
+        if (!node) return;
+
+        // 宏观层阶段一专用内容
+        if (node.id === "macro_1") {
+          panelTitle.style.textAlign = "center";
+          panelTitle.textContent = "前奥林匹斯神系（混沌创世与初代神统治阶段）";
+          panelBody.innerHTML = "";
+
+          // 阶段一内容宽度与外层一致，垂直流式布局，避免横向滚动
+          const wrap = document.createElement("div");
+          wrap.style.display = "flex";
+          wrap.style.flexDirection = "column";
+          wrap.style.alignItems = "stretch";
+          wrap.style.gap = "12px";
+          wrap.style.width = "100%";
+
+          // 阶段一不允许出现滚动
+          const panel = document.querySelector(".panel");
+          if (panel) {
+            panel.style.overflow = "hidden";
+          }
+
+          const sections = [
+            {
+              title: "混沌起源",
+              text: "卡俄斯（Chaos），盖亚之母，从虚无中自发诞生，是万物诞生的源头，打破虚无，开启神衹诞生与宇宙形成的序幕",
+            },
+            {
+              title: "五大创世神",
+              text: "盖亚（大地）、塔尔塔罗斯（深渊）、厄瑞玻斯（黑暗）、倪克斯（黑夜）、厄洛斯（爱欲）奠定宇宙基本元素。",
+            },
+            {
+              title: "初代神族统治",
+              text: "盖亚独自生下乌拉诺斯（天空），后与乌拉诺斯结合，诞生十二提坦神族（六男六女，核心第二代神衹，包括三名独眼巨人和三名百臂巨人），但乌拉诺斯实施暴政，仇视子女，将独眼巨人和百臂巨人关押进塔尔塔罗斯。",
+            },
+            {
+              title: "初代神终结",
+              text: "盖亚不满暴政，授意克洛诺斯推翻乌拉诺斯。",
+            },
+          ];
+
+          sections.forEach((s) => {
+            const item = document.createElement("div");
+            item.className = "card";
+            item.style.width = "100%";
+            item.style.boxSizing = "border-box";
+            item.innerHTML = `
+              <h3 style="margin:0 0 8px;">${s.title}</h3>
+              <p style="margin:0;">${s.text}</p>
+            `;
+            wrap.appendChild(item);
+          });
+
+          panelBody.appendChild(wrap);
+          setOverlayOpen(true);
+          return;
+        }
+
+        // 宏观层阶段二专用内容
+        if (node.id === "macro_2") {
+          panelTitle.style.textAlign = "center";
+          panelTitle.textContent = "提坦神统治时期（克洛诺斯的黄金时代与王权危机）";
+          panelBody.innerHTML = "";
+
+          // 阶段二内容宽度与外层一致，垂直流式布局，避免横向滚动
+          const wrap = document.createElement("div");
+          wrap.style.display = "flex";
+          wrap.style.flexDirection = "column";
+          wrap.style.alignItems = "stretch";
+          wrap.style.gap = "12px";
+          wrap.style.width = "100%";
+
+          // 阶段二不允许出现滚动
+          const panel = document.querySelector(".panel");
+          if (panel) {
+            panel.style.overflow = "hidden";
+          }
+
+          const sections = [
+            {
+              title: "克洛诺斯夺权",
+              text: "克洛诺斯（泰坦神王）是盖亚与乌拉诺斯之子，因不满父亲残暴统治而发动政变，在盖亚支持下用镰刀阉割并推翻父亲乌拉诺斯，成为第二代神王。",
+            },
+            {
+              title: "克洛诺斯诅咒与瑞亚藏子",
+              text: "乌拉诺斯死前诅咒克洛诺斯会被其子女推翻，为了避免诅咒灵验，克洛诺斯将妻子（瑞亚）剩下的子女逐一吞噬，瑞亚将幼子宙斯的襁褓与石头掉包，藏于克里特岛抚养，骗过了克洛诺斯。",
+            },
+            {
+              title: "提坦诸神体系建立",
+              text: "克洛诺斯成为第二代神王后，提坦诸神正式登上了统治地位，建立了提坦神族体系，并产生了三大分支：克洛诺斯主支（统治核心）、俄刻阿诺斯支系（大洋神族）、晚辈提坦支系（提坦后裔）。",
+            },
+          ];
+
+          sections.forEach((s) => {
+            const item = document.createElement("div");
+            item.className = "card";
+            item.style.width = "100%";
+            item.style.boxSizing = "border-box";
+            item.innerHTML = `
+              <h3 style="margin:0 0 8px;">${s.title}</h3>
+              <p style="margin:0;">${s.text}</p>
+            `;
+            wrap.appendChild(item);
+          });
+
+          panelBody.appendChild(wrap);
+          setOverlayOpen(true);
+          return;
+        }
+
+        // 宏观层阶段三专用内容
+        if (node.id === "macro_3") {
+          panelTitle.style.textAlign = "center";
+          panelTitle.textContent = "奥林匹斯神系确立阶段（提坦之战与新神王统治）";
+          panelBody.innerHTML = "";
+
+          // 阶段三内容宽度与外层一致，垂直流式布局，避免横向滚动
+          const wrap = document.createElement("div");
+          wrap.style.display = "flex";
+          wrap.style.flexDirection = "column";
+          wrap.style.alignItems = "stretch";
+          wrap.style.gap = "12px";
+          wrap.style.width = "100%";
+
+          // 阶段三不允许出现滚动
+          const panel = document.querySelector(".panel");
+          if (panel) {
+            panel.style.overflow = "hidden";
+          }
+
+          const sections = [
+            {
+              title: "提坦之战（十年神魔大战）",
+              text: "宙斯成年后联合兄弟姐妹（哈迪斯、波塞冬、赫拉等），在独眼巨人与百臂巨人帮助下，与提坦神族展开十年大战，最终获胜并将战败提坦囚禁于塔尔塔罗斯。",
+            },
+            {
+              title: "三界划分（奥林匹斯王权划分）",
+              text: "提坦之战后宙斯、波塞冬、哈迪斯三兄弟通过抽签瓜分世界：宙斯掌天空，为众神之王，拥有最高裁决权；波塞冬掌海洋，统治所有海域，居海底宫殿；哈迪斯掌冥界，统治亡灵、死亡与地下财富，极少参与奥林匹斯事物。",
+            },
+            {
+              title: "奥林匹斯十二主神确立",
+              text: "新神定居奥林匹斯山，形成十二主神核心体系：宙斯（天帝）、赫拉（天后）、波塞冬（海神）、哈迪斯（冥王）、雅典娜（智慧/战争）、阿波罗（光明/预言）、阿尔忒弥斯（狩猎/月亮）、阿佛洛狄忒（爱与美）、阿瑞斯（战神）、赫淮斯托斯（火神/工匠）、赫尔墨斯（神使/商业）、德墨忒尔（农业/丰收）（赫斯提亚后让位给狄俄尼索斯）。",
+            },
+          ];
+
+          sections.forEach((s) => {
+            const item = document.createElement("div");
+            item.className = "card";
+            item.style.width = "100%";
+            item.style.boxSizing = "border-box";
+            item.innerHTML = `
+              <h3 style="margin:0 0 8px;">${s.title}</h3>
+              <p style="margin:0;">${s.text}</p>
+            `;
+            wrap.appendChild(item);
+          });
+
+          panelBody.appendChild(wrap);
+          setOverlayOpen(true);
+          return;
+        }
+
+        // 宏观层阶段四专用内容
+        if (node.id === "macro_4") {
+          panelTitle.style.textAlign = "center";
+          panelTitle.textContent = "英雄时代（半神英雄崛起与人类传奇阶段）";
+          panelBody.innerHTML = "";
+
+          // 阶段四内容宽度与外层一致，垂直流式布局，避免横向滚动
+          const wrap = document.createElement("div");
+          wrap.style.display = "flex";
+          wrap.style.flexDirection = "column";
+          wrap.style.alignItems = "stretch";
+          wrap.style.gap = "12px";
+          wrap.style.width = "100%";
+
+          // 阶段四不允许出现滚动
+          const panel = document.querySelector(".panel");
+          if (panel) {
+            panel.style.overflow = "hidden";
+          }
+
+          // 英雄设定作为小tip放在footer，与按钮同行
+          const panelTip = document.getElementById("panelTip");
+          if (panelTip) {
+            panelTip.textContent = "英雄设定：神与凡人结合生下的半神，拥有超凡的力量，肩负使命，连接与人的世界。";
+          }
+
+          const sections = [
+            {
+              title: "赫拉克勒斯十二试炼",
+              text: "赫拉克勒斯（半神英雄，宙斯与凡人阿尔克墨涅之子，赫拉的继子，赫拉因嫉妒对其降下疯狂诅咒，使其神志错乱）因误杀家人，接受欧律斯透斯国王的十二项残酷试炼（如斩杀涅墨亚狮子、清理奥革阿斯牛棚），最终完成试炼并升为奥林匹斯神。",
+            },
+            {
+              title: "珀尔修斯斩杀美杜莎",
+              text: "珀尔修斯为救出母亲，受波利德克特斯国王命令前去斩杀蛇发女妖美杜莎，并用美杜莎的头颅来换取母亲的自由。而雅典娜认为美杜莎在自己的神庙里被玷污了是对她的圣地以及她神格的侮辱，所以暗中帮助珀尔修斯，为他提供了神盾，隐身帽，飞鞋和魔法皮囊等武器。",
+            },
+            {
+              title: "忒修斯与米诺陶洛斯",
+              text: "据说克里特岛有个牛头人身的怪物，雅典需要每九年进贡童男童女供其食用，于是雅典王子忒修斯自愿进入克里特岛迷宫，杀死了半人半牛的米诺陶洛斯（克里特王后与公牛之子），阿里阿德涅（克里特公主）爱上了忒修斯，赠予他线团与宝剑，帮助他走出迷宫。",
+            },
+            {
+              title: "奥德修斯漂流历险",
+              text: "奥德修斯（伊萨卡国王）在特洛伊战争后率船队返乡，却触怒海神波塞冬，历经了十年海上漂泊（遭遇独眼巨人、塞壬女妖、卡吕普索等），雅典娜认为奥德修斯有智慧有谋略，于是多次在危难中帮助他，让其回到伊萨卡与家人团聚。",
+            },
+          ];
+
+          sections.forEach((s) => {
+            const item = document.createElement("div");
+            item.className = "card";
+            item.style.width = "100%";
+            item.style.boxSizing = "border-box";
+            item.innerHTML = `
+              <h3 style="margin:0 0 8px;">${s.title}</h3>
+              <p style="margin:0;">${s.text}</p>
+            `;
+            wrap.appendChild(item);
+          });
+
+          panelBody.appendChild(wrap);
+          setOverlayOpen(true);
+          return;
+        }
+
+        // 宏观层阶段五专用内容
+        if (node.id === "macro_5") {
+          panelTitle.style.textAlign = "center";
+          panelTitle.textContent = "特洛伊战争阶段";
+          panelBody.innerHTML = "";
+
+          // 阶段五内容宽度与外层一致，垂直流式布局，避免横向滚动
+          const wrap = document.createElement("div");
+          wrap.style.display = "flex";
+          wrap.style.flexDirection = "column";
+          wrap.style.alignItems = "stretch";
+          wrap.style.gap = "12px";
+          wrap.style.width = "100%";
+
+          // 阶段五不允许出现滚动
+          const panel = document.querySelector(".panel");
+          if (panel) {
+            panel.style.overflow = "hidden";
+          }
+
+          const sections = [
+            {
+              title: "金苹果争端与海伦被拐",
+              text: "不和女神厄里斯扔下“献给最美女神”的金苹果，有赫拉、雅典娜和阿佛洛狄忒三位女神竞选，宙斯让帕里斯（特洛伊王子）自行评判，于是他将金苹果判给了阿佛洛狄忒；阿佛洛狄忒也兑现承诺，帮助帕里斯拐走斯巴达王后海伦（宙斯与凡人勒达之女），海伦丈夫（墨涅拉俄斯）大怒，引发希腊联军讨伐特洛伊。",
+            },
+            {
+              title: "神祇阵营对立",
+              text: "诸神分为两派干预战场：支持希腊的有雅典娜、赫拉、波塞冬（雅典娜与赫拉因金苹果事件怨恨帕里斯，故支持希腊）；支持特洛伊的有阿佛洛狄忒、阿瑞斯、阿波罗（阿佛洛狄忒与阿瑞斯是情人，阿波罗因偏爱特洛伊人而站在特洛伊一方）。",
+            },
+            {
+              title: "核心英雄对决",
+              text: "希腊第一勇士阿喀琉斯与特洛伊统帅赫克托尔（特洛伊王子）展开决战，阿喀琉斯杀死赫克托尔并拖尸泄愤；后阿喀琉斯被帕里斯射中脚踵而死；最终，帕利斯被菲洛克忒忒斯的毒箭射中身亡。",
+            },
+            {
+              title: "木马计破城",
+              text: "奥德修斯献上木马计，让希腊士兵藏于木马中，联军佯装撤退，特洛伊人将木马当战利品拖入城内；深夜希腊勇士杀出，里应外合，特洛伊城陷落。",
+            },
+          ];
+
+          sections.forEach((s) => {
+            const item = document.createElement("div");
+            item.className = "card";
+            item.style.width = "100%";
+            item.style.boxSizing = "border-box";
+            item.innerHTML = `
+              <h3 style="margin:0 0 8px;">${s.title}</h3>
+              <p style="margin:0;">${s.text}</p>
+            `;
+            wrap.appendChild(item);
+          });
+
+          panelBody.appendChild(wrap);
+          setOverlayOpen(true);
+          return;
+        }
+
+        // 宏观层阶段六专用内容
+        if (node.id === "macro_6") {
+          panelTitle.style.textAlign = "center";
+          panelTitle.textContent = "神话衰落与回归人本阶段";
+          panelBody.innerHTML = "";
+
+          // 阶段六内容宽度与外层一致，垂直流式布局，避免横向滚动
+          const wrap = document.createElement("div");
+          wrap.style.display = "flex";
+          wrap.style.flexDirection = "column";
+          wrap.style.alignItems = "stretch";
+          wrap.style.gap = "12px";
+          wrap.style.width = "100%";
+
+          // 阶段六不允许出现滚动
+          const panel = document.querySelector(".panel");
+          if (panel) {
+            panel.style.overflow = "hidden";
+          }
+
+          const sections = [
+            {
+              title: "阿伽门农之死",
+              text: "希腊联军统帅阿伽门农（迈锡尼国王）战后返乡，而妻子克吕泰涅斯特拉因阿伽门农献祭女儿伊菲革涅亚而怀恨在心，联合情夫埃癸斯托斯将丈夫杀害。",
+            },
+            {
+              title: "俄瑞斯忒斯复仇",
+              text: "阿伽门农之子俄瑞斯忒斯为父报仇，杀死母亲克吕泰涅斯特拉与情夫埃癸斯托斯，后被复仇女神追杀，最终在雅典娜的审判下被赦免，标志着从血亲复仇向法治文明的过渡。",
+            },
+            {
+              title: "俄狄浦斯王悲剧",
+              text: "阿波罗的神谕预言说俄狄浦斯将来会杀父娶母，于是俄狄浦斯被父母被抛弃，长大后为了避免预言成真，于是逃离养父母，却无意中杀死生父拉伊俄斯（底比斯国王），被拥立成王后又娶了生母伊俄卡斯忒为妻，在城邦瘟疫追查凶手时发现自己就是杀父娶母的人，于是刺瞎双眼自我流放。",
+            },
+            {
+              title: "神话向文学转化",
+              text: "神话从口头传说被整理为荷马（诗人）的《伊利亚特》《奥德赛》、索福克勒斯（悲剧作家）的《俄狄浦斯王》等作品，荷马将与特洛伊战争有关的传说整理成书本，索福克勒斯将俄狄浦斯的故事改编为经典悲剧。神话从宗教叙事转向文学与哲学反思，“人本”思想逐渐萌芽，古希腊神话体系走向终结。",
+            },
+          ];
+
+          sections.forEach((s) => {
+            const item = document.createElement("div");
+            item.className = "card";
+            item.style.width = "100%";
+            item.style.boxSizing = "border-box";
+            item.innerHTML = `
+              <h3 style="margin:0 0 8px;">${s.title}</h3>
+              <p style="margin:0;">${s.text}</p>
+            `;
+            wrap.appendChild(item);
+          });
+
+          panelBody.appendChild(wrap);
+          setOverlayOpen(true);
+          return;
+        }
+        panelTitle.textContent = node.title;
+        panelBody.innerHTML = "";
+
+        const panel = document.querySelector(".panel");
+        if (panel) {
+          panel.style.overflow = "auto";
+        }
+
+        const wrap = document.createElement("div");
+        wrap.style.display = "grid";
+        wrap.style.gap = "12px";
+
+        const intro = document.createElement("div");
+        intro.className = "card";
+        intro.innerHTML = `
+          <h3>这里是「${node.label}」的界面</h3>
+          <p>你可以把这个区块换成真正的功能页（列表、表单、搜索、图表等）。目前先放示意内容，并保留「返回」回上一层的流程。</p>
+          <div class="tagRow">
+            <span class="tag">节点ID：${node.id}</span>
+            <span class="tag">状态：detail</span>
+            <span class="tag">可自定义内容</span>
+          </div>
+        `;
+
+        const grid = document.createElement("div");
+        grid.className = "grid";
+
+        const c1 = document.createElement("div");
+        c1.className = "card";
+        c1.innerHTML = `
+          <h3>示例：数据卡片</h3>
+          <p>可放「人物/事件/概念」的属性、摘要、来源、置信度等。</p>
+          <div class="tagRow">
+            <span class="tag">name</span><span class="tag">type</span><span class="tag">score</span>
+          </div>
+        `;
+
+        const c2 = document.createElement("div");
+        c2.className = "card";
+        c2.innerHTML = `
+          <h3>示例：动作区</h3>
+          <p>你可以在这里加上按钮、筛选器、搜索栏、或跳到其他页面。</p>
+          <div class="tagRow">
+            <span class="tag">新增</span><span class="tag">编辑</span><span class="tag">删除</span>
+          </div>
+        `;
+
+        grid.appendChild(c1);
+        grid.appendChild(c2);
+
+        const tip = document.createElement("div");
+        tip.className = "card";
+        tip.innerHTML = `
+          <h3>操作提示</h3>
+          <p>
+            - 点「返回」会回到上一层<br/>
+            - 点「关闭」会直接关闭子页面（回到节点菜单）<br/>
+            - 按 <span class="kbd">Esc</span> 也等同返回
+          </p>
+        `;
+
+        wrap.appendChild(intro);
+        wrap.appendChild(grid);
+        wrap.appendChild(tip);
+
+        panelBody.appendChild(wrap);
+        setOverlayOpen(true);
+      }
+
+      function closeDetailToMenu() {
+        if (state.view !== "detail") return;
+        if (state.history.length > 0) {
+          goBack();
+          return;
+        }
+        goTo({ view: "menu", currentLayer: state.currentLayer }, { skipHistory: true, animate: false, replace: true });
+      }
+
+      function parseHash() {
+        const h = (location.hash || "").replace("#", "").trim();
+        if (!h || h === "root") return { view: "root", selected: null, currentLayer: "root" };
+        if (h === "menu") return { view: "menu", selected: null, currentLayer: "root" };
+
+        // 检查是否为二级层级（可展开的层）
+        if (layerData[h]) {
+          return { view: "menu", selected: null, currentLayer: h };
+        }
+
+        // 检查是否为节点ID
+        if (findNode(h)) {
+          // 需要确定该节点属于哪个层级，这样返回时可以回到正确菜单
+          let cur = "root";
+          for (const key in layerData) {
+            if (Array.isArray(layerData[key]) && layerData[key].some((n) => n.id === h)) {
+              cur = key;
+              break;
+            }
+          }
+          return { view: "detail", selected: h, currentLayer: cur };
+        }
+
+        return { view: "root", selected: null, currentLayer: "root" };
+      }
+
+      // Global events
+      btnBack.addEventListener("click", () => goBack());
+      btnHome.addEventListener("click", () => {
+        state.history = [];
+        state.currentLayer = "root";
+        updateButtons();
+        goTo({ view: "root", currentLayer: "root" }, { skipHistory: true, replace: true });
+      });
+
+      btnOverlayClose.addEventListener("click", () => closeDetailToMenu());
+      btnOverlayBack.addEventListener("click", () => goBack());
+
+      window.addEventListener("resize", () => updateLayout());
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") goBack();
+      });
+
+      window.addEventListener("popstate", () => {
+        // Browser back/forward
+        const next = parseHash();
+        // When user navigates with browser history, we shouldn't push our own history stack.
+        // We'll just reset our internal history to keep back button consistent.
+        state.history = [];
+        updateButtons();
+        applyView(next, { skipHistory: true, animate: false });
+      });
+
+      // Init
+function init() {
+  // 强制重置哈希为 #root，确保从根视图开始
+  if (location.hash !== '#root') {
+    history.replaceState({}, '', '#root');
+  }
+
+  // 构建基础元素
+  buildSceneIfNeeded();
+
+  // 等待一帧，等布局完全稳定后再应用视图
+  requestAnimationFrame(() => {
+    updateLayout(); // 此时尺寸已正确
+    const initial = parseHash(); // 此时哈希一定是 #root
+    state.currentLayer = initial.currentLayer || "root";
+    state.history = [];
+    updateButtons();
+    applyView(initial, { skipHistory: true, animate: false });
+  });
+}
+
+      window.addEventListener("load", init);
+    </script>
+  </body>
+</html>
