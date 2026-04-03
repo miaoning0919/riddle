@@ -460,36 +460,7 @@
       function renderHud() {
         clearSvgGroup(gHud);
 
-        const msg =
-          state.view === "root"
-            ? "点击中央大圆展开三层结构"
-            : state.view === "menu"
-            ? "点任一小圆进入对应分类"
-            : "按返回回到上一层";
-
-        const hint = svgEl("text", {
-          x: state.cx,
-          y: state.cy + Math.min(state.height * 0.34, 240),
-          "text-anchor": "middle",
-          "dominant-baseline": "middle",
-          fill: "rgba(255,255,255,0.7)",
-          "font-size": 14,
-          "letter-spacing": 0.2,
-        });
-        hint.textContent = msg;
-
-        const keys = svgEl("text", {
-          x: state.cx,
-          y: state.cy + Math.min(state.height * 0.34, 240) + 24,
-          "text-anchor": "middle",
-          "dominant-baseline": "middle",
-          fill: "rgba(255,255,255,0.48)",
-          "font-size": 12,
-        });
-        keys.textContent = "键盘：Esc 返回｜浏览器返回键也可用";
-
-        gHud.appendChild(hint);
-        gHud.appendChild(keys);
+        // HUD 提示已移除
       }
 
       function buildSceneIfNeeded() {
@@ -511,7 +482,7 @@
           y: state.cy,
           "text-anchor": "middle",
           "dominant-baseline": "middle",
-          fill: "rgba(255,255,255,0.92)",
+          fill: "rgba(0,0,0,0.7)",
           "font-size": 18,
           "font-weight": 750,
           "letter-spacing": 0.3,
@@ -564,7 +535,7 @@
             y: state.cy,
             "text-anchor": "middle",
             "dominant-baseline": "middle",
-            fill: "rgba(255,255,255,0.92)",
+            fill: "rgba(0,0,0,0.7)",
             "font-size": 14,
             "font-weight": 720,
           });
